@@ -1,0 +1,15 @@
+[package]
+name = "hello-piston"
+version = "0.1.0"
+authors = ["Mark Schifflin <rschifflin@hotmail.com>"]
+
+[[bin]]
+name = "hellopiston"
+
+[dependencies]
+piston = "0.27.0"
+piston-float = "0.2.0"
+piston2d-graphics = "0.19.0"
+pistoncore-glutin_window = "0.33.0"
+piston2d-opengl_graphics = "0.37.0"
+specs = "0.7.1"
