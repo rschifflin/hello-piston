@@ -8,7 +8,7 @@ use context::Context;
 pub struct Player;
 
 impl System<Context> for Player {
-  fn run(&mut self, arg: RunArg, context: Context) {
+  fn run(&mut self, arg: RunArg, _: Context) {
     let (mut vels, players) = arg.fetch(|w| {
       let vels = w.write::<Velocity>();
       let players = w.read::<::components::control::Player>();

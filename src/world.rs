@@ -2,14 +2,12 @@ use components::phys::{Position, Velocity, Bounds};
 use components::visual::{Shape, ShapeType};
 use components::control::{Player, AI};
 use components::control::player::Direction;
-use specs::World;
+use specs::{World, Entity};
 use float::Radians;
-use context::Context;
 use screen;
 use graphics;
 use colors;
 
-const DELTA: f64 = 1.0;
 pub fn register(world: &mut World) {
   world.register::<Player>();
   world.register::<AI>();
@@ -21,7 +19,7 @@ pub fn register(world: &mut World) {
   world.register::<Shape>();
 }
 
-pub fn create_initial_entities(world: &mut World) -> Context {
+pub fn create_initial_entities(world: &mut World) -> (Entity, Entity, Entity) {
   let p1 = world.create_now() // Player paddle
     .with::<Player>(Player { direction: Direction::Neutral })
     .with::<Velocity>(Velocity { angle: 270.0.deg_to_rad(), speed: 0.0 })
@@ -54,9 +52,5 @@ pub fn create_initial_entities(world: &mut World) -> Context {
     })
     .build();
 
-  Context {
-    p1_paddle: p1,
-    p2_paddle: p2,
-    ball: ball
-  }
+    (p1, p2, ball)
 }
