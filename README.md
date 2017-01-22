@@ -13,6 +13,7 @@ A rambling wishlist of stuff to touch:
 - [x] Piston 2D Graphics
 - [x] Specs ECS
 - [x] Audio
+- [ ] AI
 - [ ] Event bus
 - [ ] Networking
 - [ ] Cross-Compilation
