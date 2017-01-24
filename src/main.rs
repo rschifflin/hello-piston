@@ -3,11 +3,13 @@
 extern crate piston;
 extern crate float;
 extern crate graphics;
-extern crate glutin_window;
-extern crate opengl_graphics;
+extern crate glium;
+extern crate glium_graphics;
 extern crate specs;
 extern crate cpal;
 extern crate futures;
+extern crate bit_vec;
+#[macro_use] extern crate conrod;
 
 mod components;
 mod systems;
@@ -16,47 +18,74 @@ mod sound;
 mod screen;
 mod world;
 mod context;
+mod ui;
 
 use piston::window::WindowSettings;
 use piston::event_loop::*;
 use piston::input::*;
-use specs::{RunArg, Join};
-use glutin_window::GlutinWindow as Window;
-use opengl_graphics::{ GlGraphics, OpenGL };
+use specs::{RunArg, Join, Entity, World};
+use glium_graphics::{Glium2d, GliumGraphics, OpenGL, GliumWindow};
+use glium::{Surface, Frame};
+use glium::backend::Facade;
 use context::Context;
+use conrod::render::{Primitive, PrimitiveKind, PrimitiveWalker};
 use futures::sync::mpsc::channel;
 use sound::{SoundEvent, spawn_audio_thread};
 
 pub struct App {
-  gl: GlGraphics, // OpenGL drawing backend.
+  ui: ui::Ui,
+  gl: Glium2d, // OpenGL drawing backend.
   context: Context, //Screen size, important entities
   planner: specs::Planner<Context>
 }
 
 impl App {
-  fn render(&mut self, args: &RenderArgs) {
-    use graphics::*;
+  fn render(&mut self, args: &RenderArgs, window: &mut glium_graphics::GliumWindow) {
     let world = self.planner.mut_world();
+    let mut ui = &mut self.ui;
+    let mut frame = window.draw();
+    if let Some(mut primitives) = ui.ui.draw_if_changed() {
+      frame.clear_color(0.0, 0.0, 0.0, 1.0);
+      ui.renderer.fill(window, primitives, &ui.image_map);
+      ui.renderer.draw(window, &mut frame, &ui.image_map);
+        /*
+        conrod::backend::piston::draw::primitives(
+          primitives,
+          c,
+          gl,
+          &mut ui.text_texture_cache,
+          &mut ui.glyph_cache,
+          &ui.image_map,
+          ui::Ui::cache_queued_glyphs,
+          ui::Ui::texture_from_image
+        );
+        */
+    };
+      //Self::render_gfx(c, gl, world);
+    frame.finish().unwrap();
+  }
+
+  fn render_gfx(c: graphics::Context, gl: &mut GliumGraphics<Frame>, world: &mut World) {
+    use graphics::{Graphics, ellipse, rectangle, Transformed};
+
     let pos = world.read::<components::phys::Position>();
     let shapes = world.read::<components::visual::Shape>();
-
-    self.gl.draw(args.viewport(), |c, gl| {
-      clear(colors::BLACK, gl);
-      for (pos, shape) in (&pos, &shapes).iter() {
-        let xform = c.transform.trans(pos.x, pos.y);
-        match shape.shape {
-          components::visual::ShapeType::Circle(circ) => {
-            ellipse(shape.color, circ, xform, gl);
-          },
-          components::visual::ShapeType::Rectangle(rect) => {
-            rectangle(shape.color, rect, xform, gl);
-          },
-        };
+    for (pos, shape) in (&pos, &shapes).iter() {
+      let xform = c.transform.trans(pos.x, pos.y);
+      match shape.shape {
+        components::visual::ShapeType::Circle(circ) => {
+          ellipse(shape.color, circ, xform, gl);
+        },
+        components::visual::ShapeType::Rectangle(rect) => {
+          rectangle(shape.color, rect, xform, gl);
+        },
       };
-    });
+    };
   }
 
   fn input(&mut self, args: &Input) {
+    self.ui.ui.handle_event(args.clone());
+
     use components::control::player::Direction;
 
     let Context { p1_paddle, p2_paddle, .. } = self.context.clone();
@@ -97,6 +126,7 @@ impl App {
   }
 
   fn update(&mut self, _: &UpdateArgs) {
+    self.ui.update();
     self.planner.dispatch(self.context.clone());
   }
 }
@@ -106,7 +136,7 @@ fn main() {
   spawn_audio_thread(sound_rx);
 
   let opengl = OpenGL::V3_2;
-  let mut window: Window = WindowSettings::new(
+  let mut window: GliumWindow = WindowSettings::new(
     "pawng",
     [screen::WIDTH, screen::HEIGHT]
   )
@@ -114,6 +144,8 @@ fn main() {
     .exit_on_esc(true)
     .build()
     .unwrap();
+  use std::ops::Deref;
+  println!("dpi: {}", window.window.borrow().deref().window.hidpi_factor());
 
   // Create a new game and run it.
   let mut world = specs::World::new();
@@ -128,17 +160,22 @@ fn main() {
   let mut planner = specs::Planner::<Context>::new(world, 4);
   systems::plan_system(&mut planner, systems::Physics, 0);
   systems::plan_system(&mut planner, systems::control::Player, 0);
+  let ui = ui::Ui::new(&mut window);
 
   let mut app = App {
-      gl: GlGraphics::new(opengl),
-      context: context,
-      planner: planner
+    ui: ui,
+    gl: Glium2d::new(opengl, &window),
+    context: context,
+    planner: planner,
   };
 
-  let mut events = window.events();
-  while let Some(e) = events.next(&mut window) {
-    if let &Event::Input(ref i) = &e { app.input(i); }
+  while let Some(e) = window.next() {
+    if let &Event::Input(ref i) = &e {
+      app.input(i);
+    }
     e.update(|args| app.update(&args));
-    e.render(|args| app.render(&args));
+    e.render(|args| {
+      app.render(&args, &mut window);
+    });
   }
 }
