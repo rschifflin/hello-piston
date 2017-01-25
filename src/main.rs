@@ -8,7 +8,6 @@ extern crate glium_graphics;
 extern crate specs;
 extern crate cpal;
 extern crate futures;
-extern crate bit_vec;
 #[macro_use] extern crate conrod;
 
 mod components;
@@ -33,7 +32,7 @@ use futures::sync::mpsc::channel;
 use sound::{SoundEvent, spawn_audio_thread};
 
 pub struct App {
-  ui: ui::Ui,
+  ui: ui::Ui, //Conrod drawing context
   gl: Glium2d, // OpenGL drawing backend.
   context: Context, //Screen size, important entities
   planner: specs::Planner<Context>
@@ -42,30 +41,42 @@ pub struct App {
 impl App {
   fn render(&mut self, args: &RenderArgs, window: &mut glium_graphics::GliumWindow) {
     let world = self.planner.mut_world();
-    let mut ui = &mut self.ui;
+    let &mut ui::Ui {
+      ref mut ui,
+      ref mut primitives,
+      ref mut text_texture_cache,
+      ref mut glyph_cache,
+      ref image_map,
+      ..
+    } = &mut self.ui;
+
+
+    if let Some(mut new_primitives) = ui.draw_if_changed() {
+      *primitives = Some(new_primitives.owned());
+    }
+
     let mut frame = window.draw();
-    if let Some(mut primitives) = ui.ui.draw_if_changed() {
-      frame.clear_color(0.0, 0.0, 0.0, 1.0);
-      ui.renderer.fill(window, primitives, &ui.image_map);
-      ui.renderer.draw(window, &mut frame, &ui.image_map);
-        /*
+    frame.clear_color(0.0, 0.0, 0.0, 1.0);
+    self.gl.draw(&mut frame, args.viewport(), |mut c, g| {
+      if let &mut Some(ref ps) = primitives {
         conrod::backend::piston::draw::primitives(
-          primitives,
+          ps.walk(),
           c,
-          gl,
-          &mut ui.text_texture_cache,
-          &mut ui.glyph_cache,
-          &ui.image_map,
+          g,
+          text_texture_cache,
+          glyph_cache,
+          image_map,
           ui::Ui::cache_queued_glyphs,
           ui::Ui::texture_from_image
         );
-        */
-    };
-      //Self::render_gfx(c, gl, world);
+      };
+      Self::render_gfx(c, g, world);
+    });
+
     frame.finish().unwrap();
   }
 
-  fn render_gfx(c: graphics::Context, gl: &mut GliumGraphics<Frame>, world: &mut World) {
+  fn render_gfx(c: graphics::Context, g: &mut GliumGraphics<Frame>, world: &mut World) {
     use graphics::{Graphics, ellipse, rectangle, Transformed};
 
     let pos = world.read::<components::phys::Position>();
@@ -74,10 +85,10 @@ impl App {
       let xform = c.transform.trans(pos.x, pos.y);
       match shape.shape {
         components::visual::ShapeType::Circle(circ) => {
-          ellipse(shape.color, circ, xform, gl);
+          ellipse(shape.color, circ, xform, g);
         },
         components::visual::ShapeType::Rectangle(rect) => {
-          rectangle(shape.color, rect, xform, gl);
+          rectangle(shape.color, rect, xform, g);
         },
       };
     };
@@ -126,14 +137,13 @@ impl App {
   }
 
   fn update(&mut self, _: &UpdateArgs) {
-    self.ui.update();
     self.planner.dispatch(self.context.clone());
   }
 }
 
 fn main() {
   let (sound_tx, sound_rx) = channel::<SoundEvent>(0);
-  spawn_audio_thread(sound_rx);
+  //spawn_audio_thread(sound_rx);
 
   let opengl = OpenGL::V3_2;
   let mut window: GliumWindow = WindowSettings::new(
@@ -144,8 +154,6 @@ fn main() {
     .exit_on_esc(true)
     .build()
     .unwrap();
-  use std::ops::Deref;
-  println!("dpi: {}", window.window.borrow().deref().window.hidpi_factor());
 
   // Create a new game and run it.
   let mut world = specs::World::new();
@@ -160,7 +168,8 @@ fn main() {
   let mut planner = specs::Planner::<Context>::new(world, 4);
   systems::plan_system(&mut planner, systems::Physics, 0);
   systems::plan_system(&mut planner, systems::control::Player, 0);
-  let ui = ui::Ui::new(&mut window);
+  let mut ui = ui::Ui::new(&mut window);
+  ui.update();
 
   let mut app = App {
     ui: ui,

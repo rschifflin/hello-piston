@@ -16,4 +16,3 @@ conrod = {path = "conrod", features = ["glium"]}
 specs = "0.7.1"
 cpal = "0.4.2"
 futures = "0.1.9"
-bit-vec = "0.4.3"

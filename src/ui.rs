@@ -1,8 +1,8 @@
 use conrod::Ui as ConrodUi;
-use bit_vec::BitVec;
 use glium;
-use glium_graphics::{GliumGraphics, GliumWindow, GlyphCache, Texture, TextureSettings};
-use glium::texture::{RawImage2d, ClientFormat, UncompressedFloatFormat, MipmapsOption};
+use graphics::ImageSize;
+use glium_graphics::{Format, CreateTexture, GliumGraphics, GliumWindow, GlyphCache, Texture, TextureSettings};
+use glium::texture::{RawImage2d, Texture2d, ClientFormat, UncompressedFloatFormat, MipmapsOption};
 use glium::backend::Facade;
 use glium::{Rect, Frame};
 use conrod;
@@ -27,44 +27,38 @@ widget_ids! {
 
 pub struct Ui {
   pub ui: ConrodUi,
+  pub primitives: Option<conrod::render::OwnedPrimitives>,
   pub text_texture_cache: Texture,
   pub glyph_cache: conrod::text::GlyphCache,
-  pub image_map: conrod::image::Map<glium::Texture2d>,
+  pub image_map: conrod::image::Map<Texture>,
   pub renderer: conrod::backend::glium::Renderer,
   ids: Ids
 }
 
 impl Ui {
   pub fn cache_queued_glyphs(g: &mut GliumGraphics<Frame>, texture: &mut Texture, rect: conrod::text::rt::Rect<u32>, buf: &[u8]) {
+    let (screen_width, screen_height) = texture.get_size();
+    let width = (rect.max.x - rect.min.x);
+    let height = (rect.max.y - rect.min.y);
+    let flipped_buf = buf
+      .chunks(width as usize).rev().fold(Vec::with_capacity((width*height) as usize), |mut new_buf, chunk| {
+        new_buf.extend(chunk.iter().map(|byte| { (255u8, 255u8, 255u8, *byte) }));
+        new_buf
+    });
+
     let ref mut inner = texture.0;
-    let width = rect.width() * 8;
-    let height = rect.height();
-    let data_alpha = BitVec::from_bytes(buf)
-      .iter()
-      .map(|b| {
-        if b { 255u8 }
-        else { 0u8 }
-      })
-      .collect::<Vec<u8>>();
-
-    println!("data_alpha: {}, {}", width * height, data_alpha.len());
-
-    /*
-    println!("Cache rect:");
-    buf.chunks(width as usize).map(|x| println!("{}", x.iter().map(|x| format!("{:08b}", x)).collect::<String>())).count();
-    */
     inner.main_level().write(
       Rect {
         left: rect.min.x,
-        bottom: rect.min.y,
+        bottom: screen_height - rect.max.y,
         width: width,
         height: height
       },
       RawImage2d {
-        data: Cow::Owned(data_alpha),
+        data: Cow::Owned(flipped_buf),
         width: width,
         height: height,
-        format: ClientFormat::U8
+        format: ClientFormat::U8U8U8U8
       }
     );
   }
@@ -74,11 +68,13 @@ impl Ui {
     let mut ui = conrod::UiBuilder::new([screen::WIDTH as f64, screen::HEIGHT as f64]).build();
     let renderer = conrod::backend::glium::Renderer::new(window).unwrap();
     let (w, h) = window.get_context().get_framebuffer_dimensions();
+
     let text_texture_cache = {
-      let gray_image = vec![(255u8); (w as usize * h as usize)];
+      let gray_image = vec![(128u8); (w as usize * h as usize)];
       let texture_settings = TextureSettings::new();
       Texture::from_memory_alpha(window, &gray_image, w, h, &texture_settings).unwrap()
     };
+
     let glyph_cache = conrod::text::GlyphCache::new(w, h, 0.1, 0.1);
     let font_id = ui.fonts.insert_from_file(FONT_PATH).unwrap();
     let image_map = conrod::image::Map::new();
@@ -87,6 +83,7 @@ impl Ui {
 
     Ui {
       ui: ui,
+      primitives: None,
       text_texture_cache: text_texture_cache,
       glyph_cache: glyph_cache,
       image_map: image_map,
@@ -108,16 +105,28 @@ impl Ui {
         (ids.right_col, widget::Canvas::new().color(color::CHARCOAL)),
     ]).set(ids.master, ui);
 
-    /*
     const DEMO_TEXT: &'static str = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. \
         Mauris aliquet porttitor tellus vel euismod. Integer lobortis volutpat bibendum. Nulla \
         finibus odio nec elit condimentum, rhoncus fermentum purus lacinia. Interdum et malesuada \
         fames ac ante ipsum primis in faucibus. Cras rhoncus nisi nec dolor bibendum pellentesque. \
         Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. \
         Quisque commodo nibh hendrerit nunc sollicitudin sodales. Cras vitae tempus ipsum. Nam \
+        Mauris aliquet porttitor tellus vel euismod. Integer lobortis volutpat bibendum. Nulla \
+        Mauris aliquet porttitor tellus vel euismod. Integer lobortis volutpat bibendum. Nulla \
+        Mauris aliquet porttitor tellus vel euismod. Integer lobortis volutpat bibendum. Nulla \
+        finibus odio nec elit condimentum, rhoncus fermentum purus lacinia. Interdum et malesuada \
+        fames ac ante ipsum primis in faucibus. Cras rhoncus nisi nec dolor bibendum pellentesque. \
+        Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. \
+        Quisque commodo nibh hendrerit nunc sollicitudin sodales. Cras vitae tempus ipsum. Nam \
+        finibus odio nec elit condimentum, rhoncus fermentum purus lacinia. Interdum et malesuada \
+        fames ac ante ipsum primis in faucibus. Cras rhoncus nisi nec dolor bibendum pellentesque. \
+        Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. \
+        Quisque commodo nibh hendrerit nunc sollicitudin sodales. Cras vitae tempus ipsum. Nam \
+        finibus odio nec elit condimentum, rhoncus fermentum purus lacinia. Interdum et malesuada \
+        fames ac ante ipsum primis in faucibus. Cras rhoncus nisi nec dolor bibendum pellentesque. \
+        Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. \
+        Quisque commodo nibh hendrerit nunc sollicitudin sodales. Cras vitae tempus ipsum. Nam \
         magna est, efficitur suscipit dolor eu, consectetur consectetur urna.";
-*/
-    const DEMO_TEXT: &'static str = "Hello world!";
     const PAD: Scalar = 20.0;
 
     widget::Text::new(DEMO_TEXT)
@@ -127,8 +136,6 @@ impl Ui {
         .align_text_left()
         .line_spacing(10.0)
         .set(ids.left_text, ui);
-
-    /*
     widget::Text::new(DEMO_TEXT)
         .color(color::LIGHT_GREEN)
         .padded_w_of(ids.middle_col, PAD)
@@ -136,7 +143,6 @@ impl Ui {
         .align_text_middle()
         .line_spacing(2.5)
         .set(ids.middle_text, ui);
-
     widget::Text::new(DEMO_TEXT)
         .color(color::LIGHT_BLUE)
         .padded_w_of(ids.right_col, PAD)
@@ -144,6 +150,5 @@ impl Ui {
         .align_text_right()
         .line_spacing(5.0)
         .set(ids.right_text, ui);
-    */
   }
 }
