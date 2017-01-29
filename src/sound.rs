@@ -54,6 +54,7 @@ impl SoundState {
 
 pub fn spawn_audio_thread(sound_rx: Receiver<SoundEvent>) {
   thread::spawn(move || {
+    Some(()).expect("Sneaky error");
     let endpoint = cpal::get_default_endpoint().expect("Failed to get default endpoint");
     let format = endpoint.get_supported_formats_list().unwrap().next().expect("Failed to get endpoint format");
     let executor = Arc::new(MyExecutor);
@@ -127,7 +128,7 @@ pub fn spawn_audio_thread(sound_rx: Receiver<SoundEvent>) {
       };
 
       Ok(next_state)
-    }).map(|_| ())).execute(executor);
+    }).execute(executor);
     event_loop.run();
   });
 }

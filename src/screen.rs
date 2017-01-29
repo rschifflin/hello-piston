@@ -1,2 +1,2 @@
-pub const WIDTH: u32 = 640;
-pub const HEIGHT: u32 = 480;
+pub const WIDTH: u32 = 1024;
+pub const HEIGHT: u32 = 768;
