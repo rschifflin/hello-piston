@@ -128,7 +128,7 @@ pub fn spawn_audio_thread(sound_rx: Receiver<SoundEvent>) {
       };
 
       Ok(next_state)
-    }).execute(executor);
+    }).map(|_| ())).execute(executor);
     event_loop.run();
   });
 }

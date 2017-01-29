@@ -1,8 +1,7 @@
 use conrod::Ui as ConrodUi;
-use glium;
-use graphics::ImageSize;
-use glium_graphics::{Format, CreateTexture, GliumGraphics, GliumWindow, GlyphCache, Texture, TextureSettings};
-use glium::texture::{RawImage2d, Texture2d, ClientFormat, UncompressedFloatFormat, MipmapsOption};
+use graphics::{Context, ImageSize};
+use glium_graphics::{GliumGraphics, GliumWindow, Texture, TextureSettings};
+use glium::texture::{RawImage2d, ClientFormat};
 use glium::backend::Facade;
 use glium::{Rect, Frame};
 use conrod;
@@ -10,8 +9,6 @@ use screen;
 use std::borrow::Cow;
 
 pub const FONT_PATH: &'static str = "./assets/fonts/NotoSans-Regular.ttf";
-pub const GLYPH_CACHE_WIDTH: u32 = 1024;
-pub const GLYPH_CACHE_HEIGHT: u32 = 1024;
 
 widget_ids! {
   pub struct Ids {
@@ -27,19 +24,18 @@ widget_ids! {
 
 pub struct Ui {
   pub ui: ConrodUi,
-  pub primitives: Option<conrod::render::OwnedPrimitives>,
-  pub text_texture_cache: Texture,
-  pub glyph_cache: conrod::text::GlyphCache,
-  pub image_map: conrod::image::Map<Texture>,
-  pub renderer: conrod::backend::glium::Renderer,
+  primitives: Option<conrod::render::OwnedPrimitives>,
+  text_texture_cache: Texture,
+  glyph_cache: conrod::text::GlyphCache,
+  image_map: conrod::image::Map<Texture>,
   ids: Ids
 }
 
 impl Ui {
-  pub fn cache_queued_glyphs(g: &mut GliumGraphics<Frame>, texture: &mut Texture, rect: conrod::text::rt::Rect<u32>, buf: &[u8]) {
-    let (screen_width, screen_height) = texture.get_size();
-    let width = (rect.max.x - rect.min.x);
-    let height = (rect.max.y - rect.min.y);
+  pub fn cache_queued_glyphs(_: &mut GliumGraphics<Frame>, texture: &mut Texture, rect: conrod::text::rt::Rect<u32>, buf: &[u8]) {
+    let (_, screen_height) = texture.get_size();
+    let width = rect.max.x - rect.min.x;
+    let height = rect.max.y - rect.min.y;
     let flipped_buf = buf
       .chunks(width as usize).rev().fold(Vec::with_capacity((width*height) as usize), |mut new_buf, chunk| {
         new_buf.extend(chunk.iter().map(|byte| { (255u8, 255u8, 255u8, *byte) }));
@@ -66,7 +62,6 @@ impl Ui {
 
   pub fn new(window: &mut GliumWindow) -> Ui {
     let mut ui = conrod::UiBuilder::new([screen::WIDTH as f64, screen::HEIGHT as f64]).build();
-    let renderer = conrod::backend::glium::Renderer::new(window).unwrap();
     let (w, h) = window.get_context().get_framebuffer_dimensions();
 
     let text_texture_cache = {
@@ -87,9 +82,27 @@ impl Ui {
       text_texture_cache: text_texture_cache,
       glyph_cache: glyph_cache,
       image_map: image_map,
-      renderer: renderer,
       ids: ids
     }
+  }
+
+  pub fn draw(&mut self, c: Context, g: &mut GliumGraphics<Frame>) {
+    if let Some(new_primitives) = self.ui.draw_if_changed() {
+      self.primitives = Some(new_primitives.owned());
+    }
+
+    if let Some(ref ps) = self.primitives {
+      conrod::backend::piston::draw::primitives(
+        ps.walk(),
+        c,
+        g,
+        &mut self.text_texture_cache,
+        &mut self.glyph_cache,
+        &self.image_map,
+        Ui::cache_queued_glyphs,
+        Ui::texture_from_image
+      );
+    };
   }
 
   pub fn update(&mut self) {

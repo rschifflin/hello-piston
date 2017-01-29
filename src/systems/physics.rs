@@ -46,7 +46,10 @@ impl System<Context> for Physics {
         ball_vel.angle = (ball_vel.angle.signum() * 10.0).deg_to_rad();
         ball_vel.speed = 4.0;
       } else if is_colliding(ball_pos, ball_bounds, p1_pos, p1_bounds) {
-        context.sound_tx.send(SoundEvent::Beep).wait().map_err(|e| println!("error emitting beep: {:?}", e));
+        context.sound_tx.send(SoundEvent::Beep)
+          .wait()
+          .map(|_| ())
+          .unwrap_or_else(|e| println!("error emitting beep: {:?}", e));
         if is_upper_corner(ball_pos, p1_pos) {
           let corner_ratio = (p1_pos.y - ball_pos.y) / ball_bounds.h;
           ball_vel.angle = (45.0 + (30.0 * corner_ratio)).deg_to_rad();
@@ -62,7 +65,10 @@ impl System<Context> for Physics {
         }
         ball_pos.x = p1_pos.x + p1_bounds.w;
       } else if is_colliding(ball_pos, ball_bounds, p2_pos, p2_bounds) {
-        context.sound_tx.send(SoundEvent::Boop).wait().map_err(|e| println!("error emitting boop: {:?}", e));
+        context.sound_tx.send(SoundEvent::Boop)
+          .wait()
+          .map(|_| ())
+          .unwrap_or_else(|e| println!("error emitting boop: {:?}", e));
         if is_upper_corner(ball_pos, p2_pos) {
           let corner_ratio = (p2_pos.y - ball_pos.y) / ball_bounds.h;
           ball_vel.angle = (135.0 - (30.0 * corner_ratio)).deg_to_rad();

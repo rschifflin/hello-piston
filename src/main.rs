@@ -14,7 +14,7 @@ extern crate futures;
 
 mod components;
 mod systems;
-mod colors;
+#[allow(dead_code)] mod colors;
 mod sound;
 mod screen;
 mod world;
@@ -22,14 +22,11 @@ mod context;
 mod ui;
 
 use piston::window::WindowSettings;
-use piston::event_loop::*;
 use piston::input::*;
-use specs::{RunArg, Join, Entity, World};
+use specs::{RunArg, Join, World};
 use glium_graphics::{Glium2d, GliumGraphics, OpenGL, GliumWindow};
 use glium::{Surface, Frame};
-use glium::backend::Facade;
 use context::Context;
-use conrod::render::{Primitive, PrimitiveKind, PrimitiveWalker};
 use futures::sync::mpsc::channel;
 use sound::{SoundEvent, spawn_audio_thread};
 
@@ -43,35 +40,12 @@ pub struct App {
 impl App {
   fn render(&mut self, args: &RenderArgs, window: &mut glium_graphics::GliumWindow) {
     let world = self.planner.mut_world();
-    let &mut ui::Ui {
-      ref mut ui,
-      ref mut primitives,
-      ref mut text_texture_cache,
-      ref mut glyph_cache,
-      ref image_map,
-      ..
-    } = &mut self.ui;
-
-
-    if let Some(mut new_primitives) = ui.draw_if_changed() {
-      *primitives = Some(new_primitives.owned());
-    }
-
+    let ui = &mut self.ui;
     let mut frame = window.draw();
+
     frame.clear_color(0.0, 0.0, 0.0, 1.0);
-    self.gl.draw(&mut frame, args.viewport(), |mut c, g| {
-      if let &mut Some(ref ps) = primitives {
-        conrod::backend::piston::draw::primitives(
-          ps.walk(),
-          c,
-          g,
-          text_texture_cache,
-          glyph_cache,
-          image_map,
-          ui::Ui::cache_queued_glyphs,
-          ui::Ui::texture_from_image
-        );
-      };
+    self.gl.draw(&mut frame, args.viewport(), |c, g| {
+      ui.draw(c, g);
       Self::render_gfx(c, g, world);
     });
 
@@ -79,7 +53,7 @@ impl App {
   }
 
   fn render_gfx(c: graphics::Context, g: &mut GliumGraphics<Frame>, world: &mut World) {
-    use graphics::{Graphics, ellipse, rectangle, Transformed};
+    use graphics::{ellipse, rectangle, Transformed};
 
     let pos = world.read::<components::phys::Position>();
     let shapes = world.read::<components::visual::Shape>();
