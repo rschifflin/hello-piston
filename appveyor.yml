@@ -76,10 +76,11 @@ branches:
     # Release tags
     - /^v\d+\.\d+\.\d+.*$/
     - master
+    - rs-appveyor
 
 notifications:
   - provider: Email
     on_build_success: false
 
 # disable automatic builds
-build: true
+build: false
