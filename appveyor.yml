@@ -34,19 +34,19 @@ install:
 # TODO This is the "test phase", tweak it as you see fit
 test_script:
   # we don't run the "test phase" when doing deploys
-  - if [%APPVEYOR_REPO_TAG%]==[false] (
-      cargo build --target %TARGET% &&
-      cargo build --target %TARGET% --release &&
-      cargo test --target %TARGET% &&
-      cargo test --target %TARGET% --release &&
-      cargo run --target %TARGET% &&
-      cargo run --target %TARGET% --release
-    )
+  #- if [%APPVEYOR_REPO_TAG%]==[false] (
+  #    cargo build --target %TARGET% &&
+  #    cargo build --target %TARGET% --release &&
+  #    cargo test --target %TARGET% &&
+  #    cargo test --target %TARGET% --release &&
+  #    cargo run --target %TARGET% &&
+  #    cargo run --target %TARGET% --release
+  #  )
 
 before_deploy:
   # TODO Update this to build the artifacts that matter to you
   #- cargo rustc --target %TARGET% --release --bin hello -- -C lto
-  - cargo build --target %TARGET% --release
+  - cargo rustc --bin hellopiston --target %TARGET% --release -- -C lto
   - ps: ci\before_deploy.ps1
 
 deploy:
@@ -56,7 +56,7 @@ deploy:
   # - Encrypt it. Go to https://ci.appveyor.com/tools/encrypt
   # - Paste the output down here
   auth_token:
-    secure: pTGJzmZH1MvE3CIx0plUJ2DGlnmhVT7NCxu0nu4sNlnLxe34hg1fPg3nZkObtFJw
+    secure: g0AOxQ49ACmwpJ4FK4+oSZK51e202yfM9yXLDe9loupNt/cG4KYnkx+LOzTlJkqG
   description: ''
   on:
     # TODO Here you can pick which targets will generate binary releases
@@ -64,7 +64,7 @@ deploy:
     # and nightly channels. This condition makes sure there is only one release
     # for such targets and that's generated using the stable channel
     RUST_VERSION: nightly
-    appveyor_repo_tag: true
+    appveyor_repo_tag: false
   provider: GitHub
 
 cache:
@@ -82,4 +82,4 @@ notifications:
     on_build_success: false
 
 # disable automatic builds
-build: true
+build: false
