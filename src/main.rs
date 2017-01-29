@@ -143,7 +143,7 @@ impl App {
 
 fn main() {
   let (sound_tx, sound_rx) = channel::<SoundEvent>(0);
-  //spawn_audio_thread(sound_rx);
+  spawn_audio_thread(sound_rx);
 
   let opengl = OpenGL::V3_2;
   let mut window: GliumWindow = WindowSettings::new(
