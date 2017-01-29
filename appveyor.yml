@@ -56,7 +56,7 @@ deploy:
   # - Encrypt it. Go to https://ci.appveyor.com/tools/encrypt
   # - Paste the output down here
   auth_token:
-    secure: pTGJzmZH1MvE3CIx0plUJ2DGlnmhVT7NCxu0nu4sNlnLxe34hg1fPg3nZkObtFJw
+    secure: g0AOxQ49ACmwpJ4FK4+oSZK51e202yfM9yXLDe9loupNt/cG4KYnkx+LOzTlJkqG
   description: ''
   on:
     # TODO Here you can pick which targets will generate binary releases
@@ -64,7 +64,7 @@ deploy:
     # and nightly channels. This condition makes sure there is only one release
     # for such targets and that's generated using the stable channel
     RUST_VERSION: nightly
-    appveyor_repo_tag: true
+    appveyor_repo_tag: false
   provider: GitHub
 
 cache:
