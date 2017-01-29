@@ -1,4 +1,6 @@
+#![feature(windows_subsystem)]
 #![feature(duration_checked_ops)]
+#![windows_subsystem = "windows"]
 
 extern crate piston;
 extern crate float;
